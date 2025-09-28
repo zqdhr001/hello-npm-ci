@@ -23,12 +23,14 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Configure npm auth
+      - name: Configure npm auth (from GitHub Secrets)
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -n "${NPM_TOKEN}" ]; then
+          if [ -n "$NPM_TOKEN" ]; then
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          else
+            echo "No NPM_TOKEN configured in GitHub Secrets; will do dry-run later."
           fi
 
       - name: Install deps (prefer ci)
@@ -55,23 +57,27 @@ jobs:
         run: |
           set -e
           npm version patch --no-commit-hooks --git-tag-version true
-
           NEW_VERSION=$(node -p "require('./package.json').version")
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "new_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
-
           git push origin HEAD
           git push origin "v$NEW_VERSION"
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (auto notes)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.bump.outputs.new_tag }}
           generate_release_notes: true
 
       - name: Publish to npm
-        if: ${{ secrets.NPM_TOKEN != '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
-        run: npm publish --access public --tag latest
+        run: |
+          if [ -n "$NODE_AUTH_TOKEN" ]; then
+            echo "Publishing to npm with dist-tag 'latest'..."
+            npm publish --access public --tag latest
+          else
+            echo "No NPM_TOKEN in GitHub Secrets; doing dry-run instead."
+            npm publish --dry-run
+          fi
