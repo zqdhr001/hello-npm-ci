@@ -1,0 +1,95 @@
+name: Release & Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "v1.0.0"
+        type: choice
+        options: [patch, minor, major, prerelease]
+        default: patch
+        required: true
+      preid:
+        description: "rc"
+        required: false
+        default: ""
+      npm_tag:
+        description: "latest"
+        required: true
+        default: "latest"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Configure npm auth
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version & create tag
+        id: bump
+        env:
+          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
+          PREID: ${{ github.event.inputs.preid }}
+        run: |
+          set -e
+          if [ "$RELEASE_TYPE" = "prerelease" ]; then
+            if [ -z "$PREID" ]; then
+              echo "prerelease 需要 preid（例如 beta/rc）"; exit 1
+            fi
+            npm version prerelease --preid "$PREID" --no-commit-hooks --git-tag-version true
+          else
+            npm version "$RELEASE_TYPE" --no-commit-hooks --git-tag-version true
+          fi
+
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          NEW_TAG="v$NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+          git push origin HEAD
+          git push origin "$NEW_TAG"
+
+      - name: Create GitHub Release (auto notes)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump.outputs.new_tag }}
+          generate_release_notes: true
+
+      - name: Publish to npm
+        env:
+          NPM_CONFIG_PROVENANCE: true
+          DIST_TAG: ${{ github.event.inputs.npm_tag }}
+        run: |
+          npm publish --access public --tag "$DIST_TAG"
