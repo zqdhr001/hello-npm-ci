@@ -1,22 +1,7 @@
-name: Release & Publish to npm
+name: Release & Publish to npm (no inputs)
 
 on:
   workflow_dispatch:
-    inputs:
-      release_type:
-        description: "v1.0.0"
-        type: choice
-        options: [patch, minor, major, prerelease]
-        default: patch
-        required: true
-      preid:
-        description: "rc"
-        required: false
-        default: ""
-      npm_tag:
-        description: "latest"
-        required: true
-        default: "latest"
 
 permissions:
   contents: write
@@ -38,10 +23,10 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Configure npm auth
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Install
         run: npm ci
@@ -57,29 +42,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump version & create tag
+      - name: Bump patch version & tag
         id: bump
-        env:
-          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
-          PREID: ${{ github.event.inputs.preid }}
         run: |
           set -e
-          if [ "$RELEASE_TYPE" = "prerelease" ]; then
-            if [ -z "$PREID" ]; then
-              echo "prerelease 需要 preid（例如 beta/rc）"; exit 1
-            fi
-            npm version prerelease --preid "$PREID" --no-commit-hooks --git-tag-version true
-          else
-            npm version "$RELEASE_TYPE" --no-commit-hooks --git-tag-version true
-          fi
-
+          npm version patch --no-commit-hooks --git-tag-version true
           NEW_VERSION=$(node -p "require('./package.json').version")
-          NEW_TAG="v$NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "new_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
 
-          git push origin HEAD
-          git push origin "$NEW_TAG"
+          git push origin HEAD:${GITHUB_REF_NAME}
+          git push origin "v$NEW_VERSION"
 
       - name: Create GitHub Release (auto notes)
         uses: softprops/action-gh-release@v2
@@ -87,9 +60,9 @@ jobs:
           tag_name: ${{ steps.bump.outputs.new_tag }}
           generate_release_notes: true
 
-      - name: Publish to npm
+      - name: Publish to npm (latest)
         env:
           NPM_CONFIG_PROVENANCE: true
-          DIST_TAG: ${{ github.event.inputs.npm_tag }}
+          # NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          npm publish --access public --tag "$DIST_TAG"
+          npm publish --access public --tag latest
