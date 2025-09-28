@@ -66,7 +66,7 @@ jobs:
           generate_release_notes: true
 
       - name: Publish to npm (latest)
-        if: ${{ secrets.NPM_TOKEN != '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' }}
+        if: ${{ secrets.NPM_TOKEN != '' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
