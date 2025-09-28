@@ -66,8 +66,12 @@ jobs:
           generate_release_notes: true
 
       - name: Publish to npm (latest)
+        if: ${{ secrets.NPM_TOKEN != '' }}
         env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
-          # NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm publish --access public --tag latest
+        run: npm publish --access public --tag latest
+      
+      - name: Publish dry-run (no token)
+        if: ${{ secrets.NPM_TOKEN == '' }}
+        run: npm publish --dry-run
