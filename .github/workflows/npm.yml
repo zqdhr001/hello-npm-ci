@@ -74,10 +74,5 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
         run: |
-          if [ -n "$NODE_AUTH_TOKEN" ]; then
-            echo "Publishing to npm with dist-tag 'latest'..."
-            npm publish --access public --tag latest
-          else
-            echo "No NPM_TOKEN in GitHub Secrets; doing dry-run instead."
-            npm publish --dry-run
-          fi
+          echo "Publishing to npm with dist-tag 'latest'..."
+          npm publish --access public --tag latest
