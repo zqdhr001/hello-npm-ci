@@ -1,6 +1,6 @@
 {
   "name": "hello-npm-ci-example",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A tiny example package to demo GitHub Actions release + npm publish",
   "main": "index.js",
   "keywords": [
