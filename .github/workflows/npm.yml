@@ -74,5 +74,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
         run: |
+          npm whoami --registry=https://registry.npmjs.org
           echo "Publishing to npm with dist-tag 'latest'..."
           npm publish --access public --tag latest
